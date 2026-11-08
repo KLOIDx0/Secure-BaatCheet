@@ -1,3 +1,4 @@
+import hmac
 import hashlib
 import secrets
 from pathlib import Path
@@ -35,3 +36,11 @@ def register(username, password):
        with CRED_FILE.open("a") as f:
            f.write(f"{username}:{salt.hex()}:{digest.hex()}\n")
        return True
+
+def verify_login(username, password):
+       # True only if the user exists and the password matches
+       record = find_user(username)
+       if record is None:
+           return False
+       salt, stored = record
+       return hmac.compare_digest(hash_password(password, salt), stored)
