@@ -16,7 +16,7 @@ Method: entry-point enumeration from code review (CY2004 Phase B, CLO1).
 | S9 | Credential file | `auth.py`, `CRED_FILE` (`users.txt`) | Anyone with read access to the host's files | Usernames, salts, and SHA-256 hashes. Default file permissions. A malformed line makes `find_user()` crash. |
 | S10 | Chat routing message | `server.py`, `handle_client()` chat loop; `route()` | Any logged-in user | `to:<user>\|<text>`. No length limit, no rate limit. |
 | S11 | Delivered message | `client.py`, `receiver()` | Any logged-in user who sends to you | `from:<user>\|<text>`, printed raw to the terminal. Terminal escape codes in the text are not stripped. |
-| S12 | Online table | `server.py`, `online`, `do_auth()` | Any connected peer | Login rejects a name that is already online. An attacker who knows a username can block that user from logging in. |
+| S12 | Online table | `server.py`, `online`, `do_auth()` | Users with a valid password | Login rejects a second session for a name already online. Needs the valid password first, so it gives no new access. |
 | S13 | Decryption step | `crypto_util.py`, `decrypt()`; called from `handle_client()`, `receiver()`, `do_auth()` | Any connected peer | Bad data raises an exception. No `try` around it, so the handling thread stops. |
 
 ## Notes for the next step
