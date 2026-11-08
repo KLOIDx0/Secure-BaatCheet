@@ -1,3 +1,5 @@
+from auth import register, verify_login
+
 from crypto_util import encrypt, decrypt
 
 from dh import make_keypair, shared_secret
@@ -7,6 +9,9 @@ import socket
 import threading
 import base64
 
+
+online = {}
+online_lock = threading.Lock()
 
 def send_msg(sock, data):
     """Send one framed, base64-encoded message (binary-safe once AES is added)."""
@@ -19,42 +24,72 @@ def recv_msg(reader):
     if not line:                 # empty read => connection closed by peer
         return None
     return base64.b64decode(line.strip())
+    
+def do_auth(reader, client_socket, K):
+       # Up to 3 tries. Returns the username on success, None on failure.
+       for _ in range(3):
+           data = recv_msg(reader)
+           if data is None:
+               return None
+           parts = decrypt(K, data).decode('utf-8').split('|', 2)
+           if len(parts) != 3:
+               send_msg(client_socket, encrypt(K, b"fail"))
+               continue
+           cmd, user, pw = parts
+           if cmd == "register":
+               ok = register(user, pw)
+           elif cmd == "login":
+               ok = verify_login(user, pw)
+           else:
+               ok = False
+           if ok:
+       	   	with online_lock:
+           		if user in online:
+               			send_msg(client_socket, encrypt(K, b"fail"))
+               			continue
+           		online[user] = (client_socket, K)
+       	   	send_msg(client_socket, encrypt(K, b"ok"))
+       	   	return user
+           send_msg(client_socket, encrypt(K, b"fail"))
+       return None
 
 
 def handle_client(client_socket, client_address):
-    reader = client_socket.makefile('rb')
+       reader = client_socket.makefile('rb')
+       user = None
+       try:
+           # DH handshake (Step 10)
+           A = int.from_bytes(recv_msg(reader), "big")
+           b, B = make_keypair()
+           send_msg(client_socket, B.to_bytes(256, "big"))
+           K = derive_key(shared_secret(b, A))
+           print("Key fingerprint:", K.hex()[:16])
 
-    A = int.from_bytes(recv_msg(reader), "big")
-    b, B = make_keypair()
-    send_msg(client_socket, B.to_bytes(256, "big"))
-    K = derive_key(shared_secret(b, A))
-    print("Key fingerprint:", K.hex()[:16])
+           # Login or register (Step 14)
+           user = do_auth(reader, client_socket, K)
+           if user is None:
+               print(f"Client {client_address} failed login.")
+               return
 
-    try:
-        while True:
-            # Receive message from the client
-            data = recv_msg(reader)
-            if data is None:                      # client closed abruptly
-                print(f"Client {client_address} disconnected.")
-                break
-
-            message = decrypt(K, data).decode('utf-8')
-
-            # If client sends "bye", close the connection
-            if message == "nikl":
-                print(f"Client {client_address} left the chat.")
-                break
-
-            print("Client:", message)
-
-            # Send a response back to the client
-            response = input("You (Server): ")
-            out = ("Server: " + response).encode('utf-8')
-
-            send_msg(client_socket, encrypt(K, out))
-    finally:
-        reader.close()
-        client_socket.close()
+           # Chat loop
+           while True:
+               data = recv_msg(reader)
+               if data is None:
+                   print(f"{user} disconnected.")
+                   break
+               message = decrypt(K, data).decode('utf-8')
+               if message == "bye":
+                   print(f"{user} left the chat.")
+                   break
+               print(f"{user}:", message)
+               response = input("You (Server): ")
+               send_msg(client_socket, encrypt(K, ("Server: " + response).encode('utf-8')))
+       finally:
+           if user is not None:
+               with online_lock:
+                   online.pop(user, None)
+           reader.close()
+           client_socket.close()
 
 
 def main():
