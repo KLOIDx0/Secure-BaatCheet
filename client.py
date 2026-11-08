@@ -1,3 +1,5 @@
+from crypto_util import encrypt, decrypt
+
 from dh import make_keypair, shared_secret
 from keys import derive_key
 
@@ -51,8 +53,7 @@ def main():
             message = input("You (Client): ")
             data = message.encode('utf-8')
 
-            # ---- TODO (CLO3): AES-encrypt `data` with K_ab before sending ----
-            send_msg(sock, data)
+            send_msg(sock, encrypt(K, data))
 
             # If the client sends "bye", terminate the chat
             if message == "bye":
@@ -65,8 +66,7 @@ def main():
                 print("Server closed the connection.")
                 break
 
-            # ---- TODO (CLO3): AES-decrypt `reply` with K_ab after receiving ----
-            print(reply.decode('utf-8'))
+            print(decrypt(K, reply).decode('utf-8'))
     finally:
         # Close the socket after communication
         reader.close()

@@ -1,3 +1,5 @@
+from crypto_util import encrypt, decrypt
+
 from dh import make_keypair, shared_secret
 from keys import derive_key
 
@@ -36,8 +38,7 @@ def handle_client(client_socket, client_address):
                 print(f"Client {client_address} disconnected.")
                 break
 
-            # ---- TODO (CLO3): AES-decrypt `data` here ----
-            message = data.decode('utf-8')
+            message = decrypt(K, data).decode('utf-8')
 
             # If client sends "bye", close the connection
             if message == "nikl":
@@ -50,8 +51,7 @@ def handle_client(client_socket, client_address):
             response = input("You (Server): ")
             out = ("Server: " + response).encode('utf-8')
 
-            # ---- TODO (CLO3): AES-encrypt `out` before sending ----
-            send_msg(client_socket, out)
+            send_msg(client_socket, encrypt(K, out))
     finally:
         reader.close()
         client_socket.close()
