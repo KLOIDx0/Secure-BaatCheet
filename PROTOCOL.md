@@ -11,3 +11,5 @@ Password hash: [TBD: e.g. SHA-256 for now, to be replaced in Step 40-ish]
 Message to user: "to:<username>|<text>"
 Server reply format: "from:<username>|<text>"
 Quit command: "bye"
+Error message: "error|<reason>
+Success: "ok"

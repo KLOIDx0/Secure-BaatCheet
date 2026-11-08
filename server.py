@@ -13,6 +13,22 @@ import base64
 online = {}
 online_lock = threading.Lock()
 
+
+send_lock = threading.Lock()  # one writer per socket at a time
+
+def safe_send(sock, key, text):
+       with send_lock:
+           send_msg(sock, encrypt(key, text.encode('utf-8')))
+
+def route(sender, target, text):
+       with online_lock:
+           entry = online.get(target)
+       if entry is None:
+           return f"error|{target} is offline"
+       target_sock, target_key = entry
+       safe_send(target_sock, target_key, f"from:{sender}|{text}")
+       return "ok"
+
 def send_msg(sock, data):
     """Send one framed, base64-encoded message (binary-safe once AES is added)."""
     sock.sendall(base64.b64encode(data) + b"\n")
@@ -63,7 +79,6 @@ def handle_client(client_socket, client_address):
            b, B = make_keypair()
            send_msg(client_socket, B.to_bytes(256, "big"))
            K = derive_key(shared_secret(b, A))
-           print("Key fingerprint:", K.hex()[:16])
 
            # Login or register (Step 14)
            user = do_auth(reader, client_socket, K)
@@ -81,9 +96,13 @@ def handle_client(client_socket, client_address):
                if message == "bye":
                    print(f"{user} left the chat.")
                    break
-               print(f"{user}:", message)
-               response = input("You (Server): ")
-               send_msg(client_socket, encrypt(K, ("Server: " + response).encode('utf-8')))
+               if message.startswith("to:") and "|" in message:
+                   target, text = message[3:].split("|", 1)
+                   result = route(user, target, text)
+                   print(f"{user} -> {target}: {result}")
+                   safe_send(client_socket, K, result)
+               else:
+                   safe_send(client_socket, K, "error|use to:<user>|<text>")
        finally:
            if user is not None:
                with online_lock:
