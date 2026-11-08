@@ -26,9 +26,18 @@ def find_user(username):
                return bytes.fromhex(salt_hex), bytes.fromhex(hash_hex)
        return None
 
+def valid_credentials(username, password):
+       # Reject empty values, and characters that break the file format
+       if not username or not password:
+           return False
+       if ":" in username or "|" in username or len(username) > 32:
+           return False
+       return True
+
 
 def register(username, password):
-       # False if the username is taken, True after saving
+       if not valid_credentials(username, password):
+       	  return False
        if find_user(username) is not None:
            return False
        salt = make_salt()
@@ -38,7 +47,8 @@ def register(username, password):
        return True
 
 def verify_login(username, password):
-       # True only if the user exists and the password matches
+       if not valid_credentials(username, password):
+       	  return False
        record = find_user(username)
        if record is None:
            return False
