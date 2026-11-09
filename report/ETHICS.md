@@ -7,4 +7,6 @@ Lab: isolated VirtualBox network named chatlab (10.10.10.0/24), no internet acce
 In scope: man-in-the-middle testing of the key exchange between the team's own client and server, and offline password cracking of the team's own credential file.
 Out of scope: any production, third-party, or internet-connected system. No malware is downloaded, executed, or analyzed.
 
+Group 3
+
 Signed: Farhan Ali    Date: 9th Nov, 2026
